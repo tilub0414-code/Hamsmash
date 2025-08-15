@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chikuro Hamster Game</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+<style>
+body, html {
+  margin:0; padding:0;
+  overflow:hidden;
+  height:100%; width:100%;
+  font-family:'Fredoka One', cursive;
+  background: linear-gradient(to top, rgba(163,217,119,0.7), rgba(214,242,161,0.7));
+}
+
+/* Splash */
+#splash {
+  position: fixed; top:0; left:0; width:100%; height:100%;
+  display:flex; flex-direction:column; justify-content:center; align-items:center;
+  background: linear-gradient(135deg, #6a11cb, #2575fc, #ff6a00, #ffe53b);
+  background-size: 400% 400%; animation: bgMove 8s ease-in-out forwards;
+  z-index:5;
+}
+@keyframes bgMove {0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}
+
+.letter {
+  display:inline-block;font-size:3em;color:#fff;
+  text-shadow:0 0 10px #fff,0 0 20px #ff00ff,0 0 30px #00ffff;
+  opacity:0;transform:translateY(-80px) rotate(-30deg);
+  animation:drop 0.6s forwards;
+}
+@keyframes drop{
+  0%{opacity:0;transform:translateY(-80px) rotate(-30deg);}
+  60%{opacity:1;transform:translateY(10px) rotate(10deg);}
+  100%{transform:translateY(0) rotate(0deg);}
+}
+
+#bigWord{
+  font-size:4.5em;color:#fff;
+  text-shadow:0 0 15px #fff,0 0 30px #ff00ff,0 0 40px #00ffff;
+  opacity:0;transform:scale(0.5);
+  animation:bigAppear 1s forwards;animation-delay:2s;
+}
+@keyframes bigAppear{to{opacity:1;transform:scale(1);} }
+
+#welcome{
+  margin-top:15px;font-size:1.5em;color:#fff;opacity:0;
+  transform:scale(0.5);
+  animation:welcomeAppear 1s forwards;animation-delay:3.5s;
+}
+@keyframes welcomeAppear{to{opacity:1;transform:scale(1);} }
+
+#revealCircle{
+  position:fixed;top:50%;left:50%;width:0;height:0;background:#111;
+  border-radius:50%;transform:translate(-50%,-50%);z-index:10;
+  animation:revealCircle 1s forwards;animation-delay:4.5s;
+}
+@keyframes revealCircle{to{width:200vmax;height:200vmax;}}
+
+/* Game */
+#game{
+  display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+  background: linear-gradient(to top, rgba(163,217,119,0.7), rgba(214,242,161,0.7));
+  color:#fff; font-family:'Fredoka One', cursive; font-size:1.5em;
+  display:flex; flex-direction:column; justify-content:flex-start; align-items:center; z-index:1;
+  padding-top:15px;
+}
+#game h1{font-size:1.8em;margin:5px;} 
+#scoreContainer, #levelContainer, #targetContainer, #timer{
+  font-size:16px; font-weight:bold; 
+  background: linear-gradient(45deg, #ffd700, #ffb347); 
+  color: #3e2723; 
+  padding:4px 10px; border-radius:8px;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.7); 
+  margin-top:5px; display:inline-block;
+}
+#scoreContainer::before{content:'💯 Score: ';} 
+#levelContainer::before{content:'📈 Level: ';} 
+#targetContainer::before{content:'🎯 Target: ';} 
+#timer::before{content:'⏱️ Time: ';}
+
+#bestScoreContainer{
+  font-size:16px;font-weight:bold;margin-top:5px;
+  background:linear-gradient(45deg,#ff8c00,#ffd700);
+  padding:4px 10px;border-radius:8px;color:#3e2723;
+  text-shadow:2px 2px 4px rgba(0,0,0,0.7);
+}
+#bestScoreContainer::before{content:'🏆 Best: ';}
+
+#gameGrid {
+  display:grid; grid-template-columns:repeat(3,100px); grid-template-rows:repeat(3,100px); gap:12px;
+  justify-content:center; margin-top:15px; position:relative;
+}
+
+.hole {
+  background: radial-gradient(circle at center, #5d4037 0%, #3e2723 80%);
+  border-radius:50%;
+  position:relative; overflow:hidden;
+  font-size:40px; line-height:100px; cursor:pointer;
+  box-shadow: inset 0 5px 10px rgba(0,0,0,0.5), 0 4px 6px rgba(0,0,0,0.3);
+  transition: transform 0.2s;
+}
+.hole::after {
+  content:''; position:absolute; top:-5px; left:-5px; width:110%; height:110%;
+  border-radius:50%; box-shadow: 0 5px 10px rgba(0,0,0,0.4) inset;
+}
+.hole:hover { transform: translateY(-3px); }
+
+.hamster{position:absolute; bottom:-100px; left:20px; transition:bottom 0.2s;}
+#hammer{position:absolute;font-size:45px;pointer-events:none;z-index:1000;transform:translate(-22px,-22px);}
+
+/* Spark +1 effect */
+.spark {
+  position:absolute; font-size:24px; font-weight:bold; color:#ffd700;
+  animation:upFade 0.8s forwards;
+}
+@keyframes upFade {
+  0% { opacity:1; transform:translateY(0) scale(1); }
+  50% { transform:translateY(-30px) scale(1.3);}
+  100% { opacity:0; transform:translateY(-50px) scale(0.5);}
+}
+
+/* Game Over */
+#gameOverScreen{position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); display:flex; flex-direction:column; justify-content:center; align-items:center; color:white; font-family:'Fredoka One', cursive; z-index:10000; opacity:0; pointer-events:none; text-align:center;}
+#gameOverScreen.show{animation:fadeIn 1s forwards; pointer-events:all;}
+#gameOverScreen h1{font-size:50px;margin:0;animation:scaleUp 1s ease forwards;}
+#gameOverScreen p{font-size:20px;margin-top:15px;animation:fadeIn 2s ease forwards;}
+#replayBtn{margin-top:20px;padding:8px 18px;font-size:16px;background:gold;color:saddlebrown;border:none;border-radius:8px;cursor:pointer;}
+#replayBtn:hover{background:orange;}
+#nextLevelBtn{margin-top:10px;padding:8px 18px;font-size:16px;background:limegreen;color:white;border:none;border-radius:8px;cursor:pointer;display:none;}
+#nextLevelBtn:hover{background:green;}
+@keyframes fadeIn{to{opacity:1;}} 
+@keyframes scaleUp{0%{transform:scale(0);}80%{transform:scale(1.2);}100%{transform:scale(1);}}
+</style>
+</head>
+<body>
+
+<div id="splash">
+  <div id="letters"></div>
+  <div id="bigWord">CHIKURO</div>
+  <div id="welcome">🎮 Game Load! 🚀</div>
+  <div id="revealCircle"></div>
+</div>
+
+<div id="game">
+  <h1>🐹 Hamster & Hammer 🔨</h1>
+  <div id="scoreContainer"></div>
+  <div id="levelContainer"></div>
+  <div id="targetContainer"></div>
+  <div id="timer"></div>
+  <div id="bestScoreContainer"></div>
+  <div id="gameGrid"></div>
+  <div id="hammer">🔨</div>
+</div>
+
+<div id="gameOverScreen">
+  <h1>Game Over!</h1>
+  <p id="finalScoreText">Thanks for Playing 🎮</p>
+  <button id="replayBtn">🔄 Play Again</button>
+  <button id="nextLevelBtn">➡️ Next Level</button>
+</div>
+
+<audio id="hitSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_b6b38d6db5.mp3?filename=click-124467.mp3"></audio>
+<audio id="gameOverMusic" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_ba41635b6d.mp3?filename=game-over-arcade-6435.mp3"></audio>
+
+<script>
+// Splash Letters
+const word='CHIKURO'; const lettersContainer=document.getElementById('letters');
+word.split('').forEach((char,index)=>{
+  const span=document.createElement('span'); span.textContent=char; span.className='letter';
+  span.style.animationDelay=`${index*0.3}s`; lettersContainer.appendChild(span);
+});
+
+// Show game AFTER splash
+const revealCircle=document.getElementById('revealCircle');
+revealCircle.addEventListener('animationend',()=>{
+  document.getElementById('splash').style.display='none';
+  document.getElementById('game').style.display='flex';
+  startGame();
+});
+
+// Hamster Game
+const gameGrid=document.getElementById("gameGrid");
+const scoreContainer=document.getElementById("scoreContainer");
+const levelContainer=document.getElementById("levelContainer");
+const targetContainer=document.getElementById("targetContainer");
+const timerDisplay=document.getElementById("timer");
+const bestScoreContainer=document.getElementById("bestScoreContainer");
+const hammer=document.getElementById("hammer");
+const finalScoreText=document.getElementById("finalScoreText");
+const replayBtn=document.getElementById("replayBtn");
+const nextLevelBtn=document.getElementById("nextLevelBtn");
+const hitSound=document.getElementById("hitSound");
+
+let score=0,timeLeft=30,gameOver=false,level=1,targetScore=5;
+let popInterval,timerInterval;
+let bestScore=localStorage.getItem("bestScore")||0;
+
+// Hammer follows cursor
+function moveHammer(x,y){hammer.style.left=x+"px"; hammer.style.top=y+"px";}
+document.addEventListener("mousemove",(e)=>moveHammer(e.pageX,e.pageY));
+document.addEventListener("touchmove",(e)=>moveHammer(e.touches[0].pageX,e.touches[0].pageY));
+
+function createGrid(){
+  gameGrid.innerHTML='';
+  for(let i=0;i<9;i++){
+    const hole=document.createElement("div"); hole.classList.add("hole");
+    const hamster=document.createElement("div"); hamster.textContent="🐹"; hamster.classList.add("hamster");
+    hole.appendChild(hamster); gameGrid.appendChild(hole);
+
+    hole.addEventListener("click",()=>{
+      // Count only if hamster visible
+      if(!gameOver && hamster.style.bottom==="20px"){
+        score++; scoreContainer.textContent=score;
+        hamster.style.bottom="-100px"; hitSound.play();
+        hammer.style.transform="translate(-22px,-22px) rotate(-20deg)";
+        setTimeout(()=>hammer.style.transform="translate(-22px,-22px) rotate(0deg)",100);
+        createSpark(hole);
+      }
+    });
+  }
+}
+
+// Spark +1
+function createSpark(hole){
+  const spark=document.createElement('div'); spark.className='spark'; spark.textContent='+1';
+  hole.appendChild(spark);
+  setTimeout(()=>spark.remove(),800);
+}
+
+function randomHamster(){
+  if(gameOver) return;
+  const hamsters=document.querySelectorAll(".hole .hamster");
+  const random=Math.floor(Math.random()*hamsters.length);
+  const hamster=hamsters[random];
+  hamster.style.bottom="20px";
+  setTimeout(()=>{hamster.style.bottom="-100px";},500+Math.random()*300 - (level*20));
+}
+
+function startGame(){
+  score=0; timeLeft=30; gameOver=false;
+  targetScore = 5 * level; // Target increases per level
+  scoreContainer.textContent=score; levelContainer.textContent=level; targetContainer.textContent=targetScore;
+  timerDisplay.textContent=`${timeLeft}s`;
+  bestScoreContainer.textContent=bestScore;
+  document.getElementById("gameOverScreen").classList.remove("show");
+  nextLevelBtn.style.display='none';
+  createGrid();
+  popInterval=setInterval(randomHamster,Math.max(300,800-(level*50)));
+  timerInterval=setInterval(()=>{
+    if(!gameOver){timeLeft--; timerDisplay.textContent=`${timeLeft}s`; if(timeLeft<=0) endGame();}
+  },1000);
+}
+
+function endGame(){
+  gameOver=true; clearInterval(popInterval); clearInterval(timerInterval);
+  if(score>bestScore){bestScore=score; localStorage.setItem("bestScore",bestScore);}
+  bestScoreContainer.textContent=bestScore;
+  if(score>=targetScore){
+    finalScoreText.innerHTML=`🎯 Level ${level} Completed!<br>Score: <b>${score}</b>/<b>${targetScore}</b>`;
+    nextLevelBtn.style.display='inline-block';
+  } else{
+    finalScoreText.innerHTML=`❌ Level ${level} Failed<br>Score: <b>${score}</b>/<b>${targetScore}</b><br>Try Again!`;
+    nextLevelBtn.style.display='none';
+  }
+  document.getElementById("gameOverMusic").play();
+  document.getElementById("gameOverScreen").classList.add("show");
+}
+
+replayBtn.addEventListener("click",startGame);
+nextLevelBtn.addEventListener("click",()=>{
+  level++; if(level>5) level=1;
+  startGame();
+});
+</script>
+</body>
+</html>
